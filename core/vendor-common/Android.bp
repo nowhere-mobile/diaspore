@@ -1,0 +1,165 @@
+// Diaspore system-side components (P4.2). Kept in /system for GSI-portability (docs/portability.md).
+// TODO(P4.2c): a proper sepolicy domain instead of su:s0.
+// TODO(P4.2b): chooser-driven profile + passphrase + store config (docs/enrollment.md).
+
+cc_prebuilt_binary {
+    name: "diaspore_agent",
+    srcs: ["bin/diaspore_agent"],
+    compile_multilib: "64",
+    check_elf_files: false, // static Go binary: no dynamic deps to check
+    strip: { none: true },
+    system_shared_libs: [],
+}
+
+sh_binary {
+    name: "diaspore_login.sh",
+    src: "bin/diaspore_login.sh",
+}
+
+sh_binary {
+    name: "diaspore_provision.sh",
+    src: "bin/diaspore_provision.sh",
+}
+
+sh_binary {
+    name: "diaspore_roamd.sh",
+    src: "bin/diaspore_roamd.sh",
+}
+
+sh_binary {
+    name: "diaspore_otad.sh",
+    src: "bin/diaspore_otad.sh",
+}
+
+sh_binary {
+    name: "diaspore_gate.sh",
+    src: "bin/diaspore_gate.sh",
+}
+
+prebuilt_etc {
+    name: "diaspore.rc",
+    src: "etc/diaspore.rc",
+    sub_dir: "init",
+}
+
+// Blind-login chooser (P3.1): the boot-time front door. Hands name+passphrase to the root
+// `diaspore_agent login-daemon` over /dev/socket/diaspore_login (the privilege boundary -- an app
+// can't write the root-owned tmpfs / read creds / do S3). No resources (UI built in code).
+// Platform-signed so it lands in a system-app domain we can grant the socket connectto (see sepolicy).
+android_app {
+    name: "DiasporeChooser",
+    srcs: ["chooser/src/**/*.java"],
+    manifest: "chooser/AndroidManifest.xml",
+    resource_dirs: ["chooser/res"], // only the device-admin policy XML (Lock Task kiosk on the gate)
+    platform_apis: true,
+    certificate: "platform",
+    optimize: { enabled: false },
+}
+
+// F-Droid client (prebuilt, F-Droid-signed): the on-device app store. Diaspore is no-Google (no Play
+// Store), so this is how a profile installs apps. Regular (non-privileged) app -- the user grants
+// "install unknown apps" on first install (no privileged extension in this slice). Apps installed via
+// F-Droid are captured on logoff and roam back on login via app provisioning (DIA-20260613-02).
+// presigned: keep F-Droid's own signature; no dexpreopt of the prebuilt. Lands in /product/app.
+android_app_import {
+    name: "FDroid",
+    apk: "prebuilts/FDroid.apk",
+    presigned: true,
+    // targetSdk >= 30 + v2/v3-signed -> Soong must use the APK verbatim (no re-align/re-sign) or it
+    // wrecks the signature; preprocessed: true tells it to.
+    preprocessed: true,
+    dex_preopt: { enabled: false },
+    product_specific: true,
+}
+
+// Curated default apps (DIA-20260617-06): a small, privacy-first, NO-GApps set from F-Droid, shipped on
+// /product/app so the device is useful out of the box. F-Droid (above) can still update them in place.
+// Same presigned + preprocessed pattern as FDroid: keep each app's own F-Droid v2/v3 signature verbatim.
+// Apps: Organic Maps (offline OSM), Conversations (XMPP), Breezy Weather, Fennec (Firefox), Aegis (TOTP),
+// NewPipe (media), AntennaPod (podcasts), Catima (loyalty/membership-card wallet), Notally (notes).
+android_app_import {
+    name: "OrganicMaps",
+    apk: "prebuilts/OrganicMaps.apk",
+    presigned: true,
+    preprocessed: true,
+    // F-Droid ships extractNativeLibs=true (compressed .so, extracted at install). Re-zipping to uncompress
+    // would break its v2/v3 signature, so skip the preprocessed compressed-JNI check and install verbatim.
+    skip_preprocessed_apk_checks: true,
+    dex_preopt: { enabled: false },
+    product_specific: true,
+}
+
+android_app_import {
+    name: "Conversations",
+    apk: "prebuilts/Conversations.apk",
+    presigned: true,
+    preprocessed: true,
+    dex_preopt: { enabled: false },
+    product_specific: true,
+}
+
+android_app_import {
+    name: "BreezyWeather",
+    apk: "prebuilts/BreezyWeather.apk",
+    presigned: true,
+    preprocessed: true,
+    dex_preopt: { enabled: false },
+    product_specific: true,
+}
+
+android_app_import {
+    name: "Fennec",
+    apk: "prebuilts/Fennec.apk",
+    presigned: true,
+    preprocessed: true,
+    skip_preprocessed_apk_checks: true, // compressed JNI libs (extractNativeLibs=true); keep the F-Droid signature
+    dex_preopt: { enabled: false },
+    product_specific: true,
+}
+
+android_app_import {
+    name: "Aegis",
+    apk: "prebuilts/Aegis.apk",
+    presigned: true,
+    preprocessed: true,
+    dex_preopt: { enabled: false },
+    product_specific: true,
+}
+
+android_app_import {
+    name: "NewPipe",
+    apk: "prebuilts/NewPipe.apk",
+    presigned: true,
+    preprocessed: true,
+    skip_preprocessed_apk_checks: true, // compressed JNI libs (extractNativeLibs=true); keep the F-Droid signature
+    dex_preopt: { enabled: false },
+    product_specific: true,
+}
+
+android_app_import {
+    name: "AntennaPod",
+    apk: "prebuilts/AntennaPod.apk",
+    presigned: true,
+    preprocessed: true,
+    skip_preprocessed_apk_checks: true, // compressed JNI libs (extractNativeLibs=true); keep the F-Droid signature
+    dex_preopt: { enabled: false },
+    product_specific: true,
+}
+
+android_app_import {
+    name: "Catima",
+    apk: "prebuilts/Catima.apk",
+    presigned: true,
+    preprocessed: true,
+    dex_preopt: { enabled: false },
+    product_specific: true,
+}
+
+android_app_import {
+    name: "Notally",
+    apk: "prebuilts/Notally.apk",
+    presigned: true,
+    preprocessed: true,
+    dex_preopt: { enabled: false },
+    product_specific: true,
+}

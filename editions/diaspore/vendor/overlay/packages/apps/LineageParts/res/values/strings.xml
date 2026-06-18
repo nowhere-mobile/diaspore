@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Diaspore branding overlay for LineageParts (the lineageos Settings + About app) — rebrand the
+  visible "LineageOS" strings to "Diaspore". Registered via PRODUCT_PACKAGE_OVERLAYS in diaspore.mk.
+  Long legal/explainer strings (e.g. trust_feature_security_patches_explain) are left upstream.
+-->
+<resources>
+    <string name="lineageparts_title">Diaspore Settings</string>
+    <string name="privacy_settings_category" translatable="false">Diaspore</string>
+    <string name="anonymous_statistics_title">Diaspore statistics</string>
+    <string name="anonymous_statistics_summary">Help make Diaspore better by opting into anonymous statistics reporting</string>
+    <string name="egg_title" translatable="false">Diaspore Easter Egg</string>
+</resources>

@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Rust / Node (future tooling)
+/target/
+**/target/
+node_modules/
+
+# Build & emulator artifacts
+*.img
+*.squashfs
+*.erofs
+out/
+*.log
+
+# Phase 0 local store data
+store-data/
+**/store-data/
+
+# Secrets / keys — never commit (this project is full of them)
+*.pem
+*.key
+*.priv
+*.age
+keys/
+secrets/
+
+# Store config (S3/Filebase endpoint + access/secret keys) - provisioned
+# out-of-band into the image, never committed.
+**/diaspore.conf
+
+# Discovery config (DISCO_* endpoint + access/secret keys). Only the *.example template is
+# tracked; a REAL discovery.conf (used to bake a turnkey default into /system) carries creds and
+# must never be committed. A clean checkout has none -> builds an un-enrolled OS.
+**/discovery.conf
+
+# Default-app APKs (DIA-20260617-06) are NOT committed (~277MB; Fennec alone is 120MB). They're fetched
+# from F-Droid at the versions pinned in prebuilts/default-apps.manifest by prebuilts/fetch-default-apps.sh.
+# FDroid.apk predates this and stays tracked.
+core/vendor-common/prebuilts/*.apk
+!core/vendor-common/prebuilts/FDroid.apk
+
+# Native JNI libs extracted from those APKs + the generated copy-files fragment (DIA-20260618-01).
+# Both are produced by fetch-default-apps.sh from the (uncommitted) APKs; never committed.
+core/vendor-common/prebuilts/jni/
+core/vendor-common/prebuilts/default-apps-jni.mk
+
+# OS cruft
+.DS_Store
+Thumbs.db

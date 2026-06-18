@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Diaspore overlay of framework-res (the android package), applied via
+     PRODUCT_PACKAGE_OVERLAYS in diaspore.mk.
+     Neutralize Android's system user-switch dialog: it only knows the DESTINATION user, so on a no-reboot
+     logoff (which switches back to user 0) it would read "Switching to Owner", meaningless to the user.
+     Diaspore's own screens carry the profile-aware wording (the gate shows "Logging in NAME", the logoff
+     screen shows "Logging off NAME"), so the transient system dialog is just a neutral placeholder. -->
+<resources>
+    <string name="user_switching_message" translatable="false">One moment…</string>
+    <string name="user_logging_out_message" translatable="false">One moment…</string>
+</resources>

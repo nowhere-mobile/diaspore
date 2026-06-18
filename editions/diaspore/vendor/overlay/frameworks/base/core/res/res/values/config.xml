@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Diaspore (DIA-20260616-61): enable the AOSP OFFLINE geolocation time-zone provider, so the timezone can
+         be auto-detected from a GPS fix ENTIRELY ON-DEVICE (no GApps, no network) — tier 3 / the privacy-
+         preferred auto source in docs/timezone-model.md. Upstream config_enableGeolocationTimeZoneDetection
+         is already true; geo detection was unsupported only because the provider package was left EMPTY. Point
+         it at the geotz provider app (`com.android.timezone.location.provider`, the service hosting
+         android.service.timezone.PrimaryLocationTimeZoneProviderService), which is bundled in the
+         `com.android.geotz` APEX added to PRODUCT_PACKAGES in diaspore.mk. -->
+    <string name="config_primaryLocationTimeZoneProviderPackageName" translatable="false">com.android.timezone.location.provider</string>
+    <!-- Master geo-detection switch (source already true; kept explicit/belt-and-suspenders). -->
+    <bool name="config_enableGeolocationTimeZoneDetection" translatable="false">true</bool>
+    <!-- ENABLE THE PRIMARY PROVIDER. This is the real gate (separate from the master switch above): the
+         provider mode is config_enablePrimaryLocationTimeZoneProvider ? ENABLED : DISABLED, and it defaults to
+         FALSE upstream (OEMs opt the specific provider in). Without it the provider stays DISABLED →
+         atLeastOneProviderIsEnabled()=false → is_geo_detection_supported=false even with the package set. -->
+    <bool name="config_enablePrimaryLocationTimeZoneProvider" translatable="false">true</bool>
+</resources>

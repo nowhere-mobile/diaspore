@@ -1,0 +1,7 @@
+# Label the Diaspore binaries (entrypoints for the diaspore domain) and the ephemeral state dir.
+/system/bin/diaspore_agent           u:object_r:diaspore_exec:s0
+/system/bin/diaspore_login\.sh       u:object_r:diaspore_exec:s0
+/data/diaspore(/.*)?                 u:object_r:diaspore_data_file:s0
+# The init-created blind-login socket. The .rc seclabel labels the socket OBJECT; this labels the
+# /dev/socket FILE so the chooser's unix_socket_connect sock_file-write applies (like /dev/socket/lmkd).
+/dev/socket/diaspore_login           u:object_r:diaspore_login_socket:s0

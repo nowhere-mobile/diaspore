@@ -1,0 +1,20 @@
+# Diaspore device store config — TEMPLATE. Real values are provisioned out-of-band (NEVER committed).
+# Provision (with real values) to /data/diaspore/diaspore.conf on the device -- mutable, FBE-encrypted
+# at rest, and rotatable in place without a reflash. The scripts read it from there (with a legacy
+# /system/etc/diaspore/diaspore.conf fallback). It is NOT baked into the system image, so a clean
+# checkout builds an un-enrolled OS. The agent's S3 backend (store arg "s3") uses these; any S3 store
+# works: Filebase/Sia, R2, B2, MinIO. The full discovery/bootstrap path is in docs/enrollment.md.
+
+S3_ENDPOINT=https://s3.filebase.io
+S3_REGION=auto
+S3_BUCKET=diaspore
+S3_ACCESS_KEY=__PROVISION_ME__
+S3_SECRET_KEY=__PROVISION_ME__
+
+# Optional: seconds between the login daemon's continuous seal of the live roamed user. Default 120.
+#DIASPORE_SYNC_INTERVAL=120
+
+# NOTE: there is intentionally no DIASPORE_PROFILE / DIASPORE_PASS here. Identity is the blind-login
+# chooser's job -- it hands the profile + passphrase to the daemon at login, and the sync is
+# session-driven (it reads the live identity from the tmpfs .session marker). Never put a passphrase
+# in this file: it would be a credential at rest on the device.

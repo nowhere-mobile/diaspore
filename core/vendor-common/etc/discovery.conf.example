@@ -1,0 +1,26 @@
+# Diaspore discovery endpoint (baked default) -- example/template. Copy to /data/diaspore/discovery.conf
+# (or bake at /system/etc/diaspore/discovery.conf) and fill in. LF line endings only (a CR breaks parsing).
+#
+# A fresh device with NO data store reads this to BOOTSTRAP its store config from name+passphrase: on a
+# login the daemon GETs a sealed config object at an unguessable bootstrapRef(name,pass) here, unseals it,
+# and configures itself -- so a profile re-materializes on any Diaspore device without re-entering store
+# creds. The discovery endpoint only ever sees opaque refs -> ciphertext (zero-knowledge), like the data
+# store. Enrollment (CREATE) + each login auto-PUBLISH the sealed config back here.
+#
+# KEYLESS LOOKUP (recommended, DIA-20260615-44): leave DISCO_ACCESS_KEY/SECRET BLANK and make the
+# discovery bucket PUBLIC-READ. The daemon then bootstraps over an ANONYMOUS HTTP GET -> a fresh device
+# needs NO baked creds at all (the leaked-image risk of an account-level key is gone from the bootstrap
+# path). Safe because discovery only holds SEALED blobs at UNGUESSABLE refs (zero-knowledge): anyone can
+# read the bucket, but a config only unseals with its name+passphrase. Endpoint + bucket are enough.
+#   -> Filebase/S3: set the bucket (or the ref/ prefix) to public-read.
+#
+# WITH KEYS (legacy / also-publish): if you fill the keys, the daemon uses authenticated S3 (and can also
+# PUBLISH on enrol/login). That bakes a long-lived key in the image -- only do this for a private bucket /
+# dev. Publishing on a keyless device is skipped (it just looks up); scoped WRITE tokens are the Phase-2
+# broker. For dev, discovery can even point at the same store as the data (bootstrapRef != profileRef).
+DISCO_ENDPOINT=https://s3.example.com
+DISCO_REGION=us-east-1
+DISCO_BUCKET=diaspore-discovery
+# Leave these BLANK for keyless anonymous lookup against a public-read bucket (the secure default):
+DISCO_ACCESS_KEY=
+DISCO_SECRET_KEY=

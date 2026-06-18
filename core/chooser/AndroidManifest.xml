@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.diaspore.chooser"
+    android:versionCode="1"
+    android:versionName="1.0">
+  <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34"/>
+  <!-- No INTERNET / network permission: the app only talks to the root login daemon over the
+       /dev/socket/diaspore_login AF_UNIX socket; the daemon does the S3 network itself. -->
+  <!-- STATUS_BAR (signature, granted via the platform cert): kiosk-lock the gate (no notification
+       shade, recents, or nav escape) while it is showing; re-enabled on unlock. -->
+  <uses-permission android:name="android.permission.STATUS_BAR"/>
+  <!-- BootReceiver re-arms the gate after boot. -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+  <!-- Launch the gate from the BootReceiver (background) — belt-and-suspenders next to the device-owner exemption. -->
+  <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND"/>
+  <!-- Arc 2: drive + switch the foreground user (ActivityManager.switchUser) for per-user roaming. -->
+  <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"/>
+  <uses-permission android:name="android.permission.MANAGE_USERS"/>
+  <!-- Logout reboots (the ephemeral roamed user auto-wipes on boot + the gate returns). -->
+  <uses-permission android:name="android.permission.REBOOT"/>
+  <!-- Arc 2 clean landing: disable the setup wizard + force-stop the restore-window crashers for the roamed user. -->
+  <uses-permission android:name="android.permission.CHANGE_COMPONENT_ENABLED_STATE"/>
+  <uses-permission android:name="android.permission.FORCE_STOP_PACKAGES"/>
+  <!-- App provisioning: reinstall the roamed identity's apps (device-local install-existing). -->
+  <uses-permission android:name="android.permission.INSTALL_PACKAGES"/>
+  <!-- App provisioning, capture half: enumerate the roamed user's launchable apps to seal the list.
+       Under targetSdk 30+ package-visibility filtering, queryIntentActivities(MAIN+LAUNCHER) is otherwise
+       reduced to the forceQueryable system packages (Settings, DocumentsUI) and silently drops the rest,
+       which is exactly the capture bug. As the device owner the chooser legitimately enumerates every app
+       it roams/provisions, so grant it full package visibility (auto-granted to this system app). -->
+  <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+  <!-- Wi-Fi onboarding at the gate: as the DEVICE OWNER the chooser can add + enable a network so a fresh
+       device (whose saved wifi was wiped with /data) can get online to reach its store, without leaving the
+       kiosk for Settings. Normal/signature perms, auto-granted to this platform-signed app. -->
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <!-- Scanned-network picker (DIA-45): NEARBY_WIFI_DEVICES lets getScanResults() return SSIDs without the
+       location toggle (neverForLocation = we don't derive location from it). Runtime perm, self-granted by
+       the device owner. Best-effort: without it the scan returns empty and the manual SSID field still works. -->
+  <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
+                   android:usesPermissionFlags="neverForLocation"/>
+  <!-- Fallback scan path: some builds only return getScanResults() to a caller holding ACCESS_FINE_LOCATION
+       (+ location enabled), even when NEARBY_WIFI_DEVICES is granted. Self-granted by the device owner. -->
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <!-- Re-apply a roamed profile's LOCALE on login via the platform LocalePicker (updatePersistentConfiguration).
+       That call enforces BOTH CHANGE_CONFIGURATION and WRITE_SETTINGS (verified on FP3: without WRITE_SETTINGS it
+       throws "Permission Denial: updatePersistentConfiguration() requires android.permission.WRITE_SETTINGS").
+       Both are signature-level, granted by the platform cert. Timezone needs no extra perm (device-owner
+       setTimeZone). DIA-20260616-58. -->
+  <uses-permission android:name="android.permission.CHANGE_CONFIGURATION"/>
+  <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+  <!-- Belt-and-suspenders to QUERY_ALL_PACKAGES: also declare the LAUNCHER query the capture relies on,
+       plus the (legacy) HOME visibility for the now-unused launchLauncher() handoff helper. -->
+  <queries>
+    <intent>
+      <action android:name="android.intent.action.MAIN"/>
+      <category android:name="android.intent.category.LAUNCHER"/>
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.MAIN"/>
+      <category android:name="android.intent.category.HOME"/>
+    </intent>
+  </queries>
+  <!-- persistent: keep the user-0 chooser process resident so its reap-watcher thread (startReapWatcher) is
+       never frozen by the cached-app freezer. While a roamed session is foreground, user 0 goes cached-empty;
+       the freezer then suspends the watcher's threads so the no-reboot-logoff SWITCH lagged ~1.5s (the gesture
+       escape window). A persistent (platform-signed system) process runs at PERSISTENT adj -> never cached ->
+       never frozen, so the watcher polls at its intended cadence and the gate reclaims the foreground in
+       ~250ms. (DIA-20260618-07; the poll itself backs off to an idle cadence when no session is active.) -->
+  <application android:label="Diaspore" android:allowBackup="false" android:persistent="true"
+               android:icon="@drawable/ic_diaspore" android:roundIcon="@drawable/ic_diaspore">
+    <!-- The chooser is a boot-launched, Lock-Task'd login GATE — NOT the home. launcher3 is the home, so
+         the launcher's own gestures/app-drawer/search keep working once you're logged in. BootReceiver
+         launches this at BOOT_COMPLETED; onResume kiosk-locks it; a correct unlock drops the lock and
+         finish()es, revealing launcher3. It stays non-removable via DEVICE OWNER status, not via home.
+         configChanges=assetsPaths: removing a roamed user at the end of a no-reboot logoff flips
+         CONFIG_ASSETS_PATHS (0x80000000) on the gate's display, which otherwise RELAUNCHES this activity
+         right as "Signing out…" clears — the ~one-frame post-logoff flicker. The gate's views are all
+         programmatic (no per-user/overlay assets to reload), so it handles that config change itself instead
+         of recreating. locale|layoutDirection: applying a roamed profile's locale on login (LocalePicker)
+         fires a GLOBAL config change; the gate's text is hardcoded English, so it absorbs it rather than
+         recreating mid-login (DIA-20260616-58). -->
+
+    <activity android:name=".ChooserActivity" android:exported="true"
+              android:theme="@android:style/Theme.Material.NoActionBar"
+              android:launchMode="singleTask"
+              android:excludeFromRecents="true"
+              android:stateNotNeeded="true"
+              android:configChanges="assetsPaths|locale|layoutDirection">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
+    </activity>
+    <!-- "Profile" launcher-drawer entry: the signed-in profile's controls (log off, change passphrase, time
+         zone, delete). Renamed from "Log off" (DIA-20260617-07) now that it's more than just logging off. This
+         is the only LAUNCHER activity (the gate is not), so the drawer shows just this "Profile" entry. -->
+    <activity android:name=".LogoffActivity" android:exported="true"
+              android:label="Profile"
+              android:theme="@android:style/Theme.Material.NoActionBar"
+              android:excludeFromRecents="true">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+    <!-- Device-admin so the chooser can be the DEVICE OWNER and drive Lock Task (kiosk) silently. -->
+    <receiver android:name=".AdminReceiver"
+              android:permission="android.permission.BIND_DEVICE_ADMIN"
+              android:exported="true">
+      <meta-data android:name="android.app.device_admin" android:resource="@xml/device_admin"/>
+      <intent-filter>
+        <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
+      </intent-filter>
+    </receiver>
+    <!-- Re-arm the gate at every boot: launcher3 is the persistent home so the system launches IT; this
+         receiver then launches the chooser gate over it (device-owner BAL exemption) and it kiosk-locks. -->
+    <receiver android:name=".BootReceiver" android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

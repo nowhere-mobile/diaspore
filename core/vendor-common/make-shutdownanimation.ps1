@@ -1,0 +1,76 @@
+# Generates the Diaspore SHUTDOWN animation (PNG frames + desc.txt). Counterpart to the boot animation:
+# the dispersing-spore motif runs in REVERSE -- the dots gather inward and the "diaspore" wordmark fades
+# to nothing, i.e. "your phone, nowhere" on power-off. Plays ONCE (desc: `p 1 0 part0`), then black.
+# Offline; .NET only. Like the boot zip, this MUST be a STORED zip (bootanimation mmaps frames) -> the
+# Add-Stored path emits deflated entries, so re-zip STORED afterwards (the build/commit step does this).
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+$W = 1080; $H = 2160; $FPS = 12; $N = 30; $nDots = 14
+$outRoot = Join-Path $PSScriptRoot 'media'
+$work = Join-Path $env:TEMP ('shutanim_' + [Guid]::NewGuid().ToString('N'))
+$part0 = Join-Path $work 'part0'
+[IO.Directory]::CreateDirectory($part0) | Out-Null
+[IO.Directory]::CreateDirectory($outRoot) | Out-Null
+
+$bg = [System.Drawing.Color]::FromArgb(255, 11, 11, 16)
+$cx = [single]($W / 2); $cy = [single]($H / 2)
+$font    = New-Object System.Drawing.Font('Segoe UI', 170, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+$subFont = New-Object System.Drawing.Font('Segoe UI', 44,  [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+$sf = New-Object System.Drawing.StringFormat
+$sf.Alignment = [System.Drawing.StringAlignment]::Center
+$sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+
+for ($i = 0; $i -lt $N; $i++) {
+  $bmp = New-Object System.Drawing.Bitmap($W, $H)
+  $g = [System.Drawing.Graphics]::FromImage($bmp)
+  $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAlias
+  $g.Clear($bg)
+  $p = $i / [double]($N - 1)   # 0 -> 1 across the single play
+
+  # dots gather INWARD toward the wordmark and fade out (reverse of the boot disperse)
+  for ($k = 0; $k -lt $nDots; $k++) {
+    $ang = ($k * 2 * [Math]::PI / $nDots) - [Math]::PI / 2
+    $rad = 30 + (1 - $p) * 300                  # starts wide (330), collapses to 30
+    $dx = [Math]::Cos($ang) * $rad
+    $dy = [Math]::Sin($ang) * $rad - (1 - $p) * 120
+    $a = [int]([Math]::Max(0.0, (1 - $p)) * 190)
+    $sz = [single][Math]::Max(2.0, 9 * (0.4 + 0.6 * (1 - $p)))
+    $br = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($a, 150, 200, 255))
+    $g.FillEllipse($br, [single]($cx + $dx - $sz / 2), [single]($cy - 250 + $dy - $sz / 2), $sz, $sz)
+    $br.Dispose()
+  }
+
+  # wordmark + tagline fade to nothing (ease out)
+  $fade = [Math]::Max(0.0, 1 - ($p * $p))
+  $wa = [int](248 * $fade)
+  $tb = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($wa, 250, 252, 255))
+  $g.DrawString('diaspore', $font, $tb, $cx, $cy, $sf); $tb.Dispose()
+  $sa = [int](150 * $fade)
+  $sb = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($sa, 165, 178, 192))
+  $g.DrawString('your phone, nowhere', $subFont, $sb, $cx, [single]($cy + 150), $sf); $sb.Dispose()
+
+  $g.Dispose()
+  $bmp.Save((Join-Path $part0 ('frame{0:0000}.png' -f $i)), [System.Drawing.Imaging.ImageFormat]::Png)
+  $bmp.Dispose()
+}
+
+# play the collapse ONCE (count=1), then bootanimation holds the last (black) frame until power cuts
+[IO.File]::WriteAllText((Join-Path $work 'desc.txt'), "$W $H $FPS`np 1 0 part0`n")
+
+$zipPath = Join-Path $outRoot 'shutdownanimation.zip'
+if (Test-Path $zipPath) { [IO.File]::Delete($zipPath) }
+$zip = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+function Add-Stored($zip, $file, $name) {
+  $e = $zip.CreateEntry($name, [System.IO.Compression.CompressionLevel]::NoCompression)
+  $s = $e.Open(); $bytes = [IO.File]::ReadAllBytes($file); $s.Write($bytes, 0, $bytes.Length); $s.Dispose()
+}
+Add-Stored $zip (Join-Path $work 'desc.txt') 'desc.txt'
+[IO.Directory]::GetFiles($part0, '*.png') | Sort-Object | ForEach-Object {
+  Add-Stored $zip $_ ('part0/' + [IO.Path]::GetFileName($_))
+}
+$zip.Dispose()
+[IO.Directory]::Delete($work, $true)
+Write-Output ("shutdownanimation.zip: " + (Get-Item $zipPath).Length + " bytes; $N frames @ ${FPS}fps; ${W}x${H}")

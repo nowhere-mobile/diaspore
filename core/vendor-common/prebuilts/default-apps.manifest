@@ -1,0 +1,18 @@
+# Diaspore default apps (DIA-20260617-06) — pinned F-Droid versions.
+#
+# These APKs are NOT committed (~277 MB; Fennec alone is 120 MB). fetch-default-apps.sh downloads them
+# from F-Droid into this dir before a build; the Android.bp android_app_import modules then bake them into
+# /product/app (presigned: F-Droid's own signature is kept, so F-Droid can update them in place later).
+# Run `bash fetch-default-apps.sh` once on a fresh tree before `m systemimage`. (FDroid.apk predates this
+# and stays committed.)
+#
+# Columns:  Name  Package  VersionCode  SHA256
+OrganicMaps   app.organicmaps          26052711  252e2e5af42475709117da33fb46fb965dd0f5323dd3042d563323469027dbe6
+Conversations eu.siacs.conversations   4217804   dac24c81ba4ca0bbb73dfa11c42eaa90c34fd8375941a0874b37159e2ac07e4d
+BreezyWeather org.breezyweather        60201     ac2715f6165b42fb34a6bfd2bfe4fb5812e74fbf23397fd872710f362082741e
+Fennec        org.mozilla.fennec_fdroid 1510320  839dabff37e2641307e89b8d98108e6692787c2d8bef7f8ff9d1ee98c09870fa
+Aegis         com.beemdevelopment.aegis 81       ab633d31cc0fa49e3ae29a3b816a7fcbe04033a3227f42bd30cf86fcd3be4159
+NewPipe       org.schabi.newpipe       1013      88a1c99ca48394af431b24379783165860aaab3f7f45cce9ca6b8a7d2139a4d6
+AntennaPod    de.danoeh.antennapod     3110495   8faee459f952e62e5c12be18620911b01c15b5fa0ee67768dcf8ae1e1a68b09c
+Catima        me.hackerchick.catima    166       4105e0f1f8e53893d6294729c39f974ee9248f3a8caede5b6e1192d475888a17
+Notally       com.omgodse.notally      57        545050cd6da0d5ab2b6a3c7c73e8ca26b4de8225db948fa6eb630512ffb0eb56

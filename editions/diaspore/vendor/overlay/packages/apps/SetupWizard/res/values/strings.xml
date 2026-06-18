@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Diaspore branding overlay. Overrides the LineageOS SetupWizard's os_name string so the
+  first-run wizard reads "Welcome to Diaspore" (WelcomeActivity injects os_name into
+  setup_welcome_message) and the other setup screens (privacy, restore, etc.) say "Diaspore" too.
+  Registered via PRODUCT_PACKAGE_OVERLAYS in diaspore.mk. Does NOT touch Settings -> About
+  (that's a separate ro.* / build string — rebrand later if desired).
+-->
+<resources>
+    <string name="os_name" translatable="false">Diaspore</string>
+</resources>

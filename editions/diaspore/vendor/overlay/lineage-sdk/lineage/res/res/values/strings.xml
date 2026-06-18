@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Diaspore branding overlay for the LineageSDK framework resources (org.lineageos.platform).
+  `lineage_version` is the label on the Settings -> About "<OS> version" row (value is ro.lineage.version).
+  Overrides the default (English) values; other locales fall back to upstream (the device runs English).
+  Registered via PRODUCT_PACKAGE_OVERLAYS in diaspore.mk.
+-->
+<resources>
+    <string name="lineage_version" translatable="false">Diaspore version</string>
+</resources>

@@ -1,0 +1,89 @@
+# Diaspore P4.2 — system-side roaming hooks (installed to /system/etc/init).
+# Real flow is chooser-driven (P3.1) + store config (docs/enrollment.md); this wires the agent in.
+# P4.2c: services run in the confined ENFORCING u:r:diaspore:s0 domain (vendor/diaspore/sepolicy).
+
+# Removed the Arc-1 scripts diaspore_boot / diaspore_shutdown / diaspore_sync: they were the only consumers
+# of a baked DIASPORE_PROFILE/DIASPORE_PASS identity (a passphrase at rest), now superseded by blind-login +
+# the login daemon's continuous seal. diaspore_boot/_shutdown were `disabled` (never started); the periodic
+# sync now lives INSIDE `diaspore_agent login-daemon` (it seals the live roamed user via the su:s0 worker).
+
+# Blind-login daemon (P3.1): init creates the AF_UNIX socket diaspore_login (0666 so the chooser app
+# can reach it -- SELinux unix_socket_connect is the real gate) and passes its fd to the launcher,
+# which execs `diaspore_agent login-daemon`. The DiasporeChooser app sends name+pass over it; the
+# daemon restores that profile's working set into the tmpfs. Long-running (init restarts it if it dies).
+service diaspore_login /system/bin/diaspore_login.sh
+    class late_start
+    user root
+    group root inet
+    socket diaspore_login stream 0666 root root u:object_r:diaspore_login_socket:s0
+    seclabel u:r:diaspore:s0
+    disabled
+
+# First-boot device-owner provisioning. su:s0 because dpm/settings need broad framework access the
+# confined diaspore domain lacks. Oneshot; no-ops after the first run per /data (a marker), so it
+# self-provisions a freshly flashed device (zero manual adb) and is idempotent on later boots.
+service diaspore_provision /system/bin/diaspore_provision.sh
+    class late_start
+    user root
+    group root
+    oneshot
+    disabled
+    seclabel u:r:su:s0
+
+# Arc 2 per-user DATA worker (su:s0 -- restores arbitrary app data into /data/user/N + restorecon, which
+# the confined diaspore domain can't). On-demand: the caller writes /data/diaspore/state/roam.req then
+# `setprop ctl.start diaspore_roamd`; the worker writes roam.res. The chooser (device owner) owns the
+# user lifecycle (create/start/switch/stop/remove via DPM/AM); this is only the privileged data half.
+service diaspore_roamd /system/bin/diaspore_roamd.sh
+    class late_start
+    user root
+    group root inet
+    oneshot
+    disabled
+    seclabel u:r:su:s0
+
+# On-device OTA updater (su:s0 -- needs network + update_engine + reboot, beyond the confined diaspore
+# domain). On-demand like diaspore_roamd: the caller writes /data/diaspore/state/ota.req then
+# `setprop ctl.start diaspore_otad`; the worker checks the store for a newer OS, CDC-restores the payload
+# (delta via the chunk cache), applies it with update_engine, and reboots into the new slot (DIA-20260618-03).
+service diaspore_otad /system/bin/diaspore_otad.sh
+    class late_start
+    user root
+    group root inet
+    oneshot
+    disabled
+    seclabel u:r:su:s0
+
+# Early gate launch (home-flash fix). The chooser's BootReceiver launches the gate on BOOT_COMPLETED, but
+# that ordered broadcast takes ~2s to drain ~11 receivers -- so the gate appears ~2s after launcher3 is
+# already on screen (the visible home-flash). This runs the instant sys.boot_completed flips (before the
+# broadcast is even posted), racing the gate up with the home. su:s0 so `am` can start the activity;
+# oneshot + idempotent (ChooserActivity is singleTask -> the BootReceiver's later launch is a no-op).
+service diaspore_gate /system/bin/diaspore_gate.sh
+    class late_start
+    user root
+    group root
+    oneshot
+    disabled
+    seclabel u:r:su:s0
+
+# Amnesiac roaming state: back /data/diaspore/state with tmpfs (RAM) so it is gone on any power-off.
+# Mounted HERE at boot_completed -- NOT at post-fs-data (too early: creating a /data dir + mounting
+# during FBE bring-up corrupts /data -> bootloop). At boot_completed /data is fully up and this dir is
+# safe to create (the mkdir lines below make it at this same trigger). init does the mount (the
+# confined diaspore domain needs no CAP_SYS_ADMIN); context= labels every file diaspore_data_file so
+# the domain's existing rw applies. Mount runs before the services so they restore/sync into the tmpfs.
+on property:sys.boot_completed=1
+    mkdir /data/diaspore 0700 root root
+    mkdir /data/diaspore/state 0700 root root
+    mount tmpfs tmpfs /data/diaspore/state mode=0700,size=256m,context=u:object_r:diaspore_data_file:s0
+    # No auto-restore: the chooser (the device HOME / hard login gate) drives the restore via the
+    # daemon on login, so a fresh boot lands on the gate with an empty tmpfs. (launcher3 remains a home,
+    # so a chooser crash falls back to a usable launcher rather than leaving the device with no home.)
+    start diaspore_gate
+    start diaspore_login
+    start diaspore_provision
+    # Self-service OTA (DIA-20260618-03) is NOT auto-applied at boot: the gate asks the daemon (OTA-STATUS)
+    # whether a newer OS is published and, on a USER-CONFIRMED "Install", the daemon kicks diaspore_otad
+    # (ctl.start) to download + update_engine-apply + reboot. So no `start diaspore_otad` here -- it is the
+    # on-demand su:s0 service defined above, triggered only by the user's confirm.
