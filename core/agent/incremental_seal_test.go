@@ -56,7 +56,7 @@ func sealCollect(t *testing.T, src string, sc *fileScanCache, store map[string][
 		cached[h] = true
 		return len(order) - 1
 	}
-	ranges, _ := walkChunks(src, sc, threshold, forceFull, emitSeal, emitCached, func(int64) {})
+	ranges, _, _ := walkChunks(src, sc, threshold, forceFull, emitSeal, emitCached, func(int64) {})
 	for _, r := range ranges {
 		sc.put(r.rel, r.mtime, r.size, r.mode, order[r.start:r.end])
 	}

@@ -2202,13 +2202,14 @@ func pushProfile(base, profile, pass, src string) {
 	}
 	var ranges []scanRange
 	var seen map[string]bool
+	var deferredR []scanRange // #84: large media files chunked into the Deferred index (nil unless the flag is on)
 	var sc *fileScanCache
 	if incrementalSeal() {
 		// Incremental (#69): walk files, chunk file-aligned, and skip re-reading unchanged large files via the
 		// scan cache. A periodic full re-hash self-heals a content change that kept an identical mtime+size.
 		sc = newFileScanCache(dk)
 		forceFull := sealCounterNext(cct)
-		ranges, seen = walkChunks(src, sc, sealFileThreshold(), forceFull,
+		ranges, seen, deferredR = walkChunks(src, sc, sealFileThreshold(), forceFull,
 			sealChunk, cachedChunk, func(n int64) { atomic.AddInt64(&doneBytes, n) })
 	} else {
 		pr, pw := io.Pipe()
@@ -2220,9 +2221,30 @@ func pushProfile(base, profile, pass, src string) {
 	if perr != nil {
 		fail(perr.Error())
 	}
-	chunks := make([]string, nchunks)
-	for i := range chunks {
-		chunks[i] = results[i]
+	// #84 on-demand media: partition the sealed chunks into the ESSENTIAL manifest (login restores it) and the
+	// DEFERRED index (rel -> its own chunk region; the media daemon serves those files on-access, P3). The
+	// deferred chunks are already sealed + uploaded (via sealChunk) so they live in the store like any other,
+	// just referenced by Deferred[rel] instead of Chunks -- and capFlush leased them as buffered writes. Both
+	// are empty when the flag is off, so `chunks` == results and the manifest is byte-identical to today.
+	deferredIdx := map[int]bool{}
+	var deferredMap map[string]deferredFile
+	if len(deferredR) > 0 {
+		deferredMap = make(map[string]deferredFile, len(deferredR))
+		for _, d := range deferredR {
+			fc := make([]string, 0, d.end-d.start)
+			for i := d.start; i < d.end; i++ {
+				deferredIdx[i] = true
+				fc = append(fc, results[i])
+			}
+			deferredMap[d.rel] = deferredFile{Chunks: fc, Size: d.size, Mode: d.mode, MTime: d.mtime}
+		}
+	}
+	chunks := make([]string, 0, nchunks-len(deferredIdx))
+	for i := 0; i < nchunks; i++ {
+		if deferredIdx[i] {
+			continue // a deferred file's chunk -> goes in Deferred[rel], not the essential tar stream
+		}
+		chunks = append(chunks, results[i])
 	}
 	// #85: read the OLD manifest once -- reused below for the shrink-guard chunk count AND here to carry each
 	// unchanged chunk's size forward, so the footprint never sizes chunks with a per-chunk store round-trip.
@@ -2240,7 +2262,7 @@ func pushProfile(base, profile, pass, src string) {
 	// Per-chunk sealed sizes for the manifest (#85): freshly-sealed chunks come from sizeOf; unchanged ones are
 	// carried from the old manifest; a chunk in neither (a pre-#85 head being re-sealed for the first time) is
 	// sized once via blobSize, then recorded in every future manifest -- so this network cost is paid at most once.
-	sizes := make([]int64, nchunks)
+	sizes := make([]int64, len(chunks)) // parallel to the ESSENTIAL chunks (deferred are indexed in Deferred)
 	backfilled := 0
 	for i, h := range chunks {
 		if sz := sizeOf[h]; sz > 0 {
@@ -2257,7 +2279,7 @@ func pushProfile(base, profile, pass, src string) {
 			}
 		}
 	}
-	mj, _ := json.Marshal(chunkManifest{Version: ver, Chunks: chunks, Sizes: sizes})
+	mj, _ := json.Marshal(chunkManifest{Version: ver, Chunks: chunks, Sizes: sizes, Deferred: deferredMap})
 	manifestHash := postBlob(base, seal(dk, append(append([]byte{}, cdcMagic...), mj...)))
 	// SHRINK GUARD (#72, DIA-20260630-41): refuse to overwrite a substantial head with a DRASTICALLY smaller
 	// working set. A partial/failed restore, or a half-wiped session, sealing over full data is silent loss --

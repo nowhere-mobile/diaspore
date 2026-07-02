@@ -39,6 +39,11 @@ func sealFileThreshold() int64 {
 	return 1 << 20
 }
 
+// ondemandMedia (#84) gates the on-demand-media split: when set, classifyDeferred() large files are chunked
+// into the manifest's Deferred index (served on-access by the media daemon, P3) instead of the login-gating
+// essential tar. Default OFF -> the seal is byte-identical to today, so production is unaffected until proven.
+func ondemandMedia() bool { return os.Getenv("NOWHERE_ONDEMAND_MEDIA") == "1" }
+
 // sealFullEvery forces a full re-hash (ignore the scan cache) every Nth seal per profile, so a content change
 // that somehow kept an identical mtime+size (which the cache would miss) self-corrects within N saves. The
 // counter is a tiny per-tag file next to the caches. Default 20; 0 disables the periodic full re-hash.
@@ -187,8 +192,9 @@ type walkEnt struct {
 // chunked large files (to refresh the scan cache after the seal lands) and the set of large-file rels seen
 // (to prune deleted files). When forceFull is set, the scan cache is ignored (every large file is re-chunked).
 func walkChunks(src string, sc *fileScanCache, threshold int64, forceFull bool,
-	emitSeal func([]byte) int, emitCached func(string) int, bump func(int64)) (ranges []scanRange, seen map[string]bool) {
+	emitSeal func([]byte) int, emitCached func(string) int, bump func(int64)) (ranges []scanRange, seen map[string]bool, deferred []scanRange) {
 	seen = map[string]bool{}
+	od := ondemandMedia()
 	var group []walkEnt
 	flushGroup := func() {
 		if len(group) == 0 {
@@ -212,6 +218,28 @@ func walkChunks(src string, sc *fileScanCache, threshold int64, forceFull bool,
 			seen[rel] = true
 			flushGroup() // a large file forces a chunk boundary -> its region is self-contained
 			mt, sz, md := info.ModTime().UnixNano(), info.Size(), uint32(info.Mode())
+			if od && classifyDeferred(rel, sz) {
+				// #84 on-demand media: chunk the RAW file bytes (NO tar wrapper -> the media daemon just
+				// concatenates chunks to reconstruct the file) into a SEPARATE deferred region, and EXCLUDE it
+				// from the essential tar (login never restores it). No scan-cache reuse for deferred files in P2:
+				// a cached hash could be tar-wrapped from a pre-flag seal, and mixing shapes would corrupt; the
+				// content cache still skips the crypto for an unchanged chunk, so the cost is the re-read only.
+				start, end := -1, -1
+				if f, err := os.Open(p); err == nil {
+					cdcSplit(f, func(c []byte) {
+						i := emitSeal(c)
+						if start < 0 {
+							start = i
+						}
+						end = i
+					})
+					f.Close()
+				}
+				if start >= 0 {
+					deferred = append(deferred, scanRange{rel, mt, sz, md, start, end + 1})
+				}
+				return nil // do NOT writeEntryTar / add to the essential ranges
+			}
 			if cached := sc.getIf(!forceFull, rel, mt, sz, md); cached != nil {
 				for _, h := range cached {
 					emitCached(h)
@@ -243,7 +271,7 @@ func walkChunks(src string, sc *fileScanCache, threshold int64, forceFull bool,
 	pr, pw := io.Pipe()
 	go func() { pw.CloseWithError(writeTarFooter(pw)) }()
 	cdcSplit(pr, func(c []byte) { emitSeal(c) })
-	return ranges, seen
+	return ranges, seen, deferred
 }
 
 // getIf is get() gated on `use` (false => always a miss, for a forced full re-hash).
