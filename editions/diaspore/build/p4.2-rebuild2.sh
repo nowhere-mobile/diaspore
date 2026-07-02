@@ -7,10 +7,10 @@ cd /mnt/build/lineage
 export PATH=$HOME/bin:$PATH LC_ALL=C USE_CCACHE=1 CCACHE_DIR=/mnt/build/ccache
 source build/envsetup.sh
 breakfast FP3
-echo "=== m diaspore_agent START $(date) combo=$TARGET_PRODUCT-$TARGET_RELEASE-$TARGET_BUILD_VARIANT ==="
-m diaspore_agent
+echo "=== m nowhere_agent START $(date) combo=$TARGET_PRODUCT-$TARGET_RELEASE-$TARGET_BUILD_VARIANT ==="
+m nowhere_agent
 echo "=== REBUILD_EXIT=$? $(date) ==="
-ls -la out/target/product/FP3/system/bin/diaspore_agent
+ls -la out/target/product/FP3/system/bin/nowhere_agent
 EOF
 chmod +x /mnt/build/run-rebuild.sh
 pkill -f run-mbuild.sh 2>/dev/null || true

@@ -22,8 +22,8 @@ ADB="adb"   # host platform-tools
 
 cat <<'EOF'
 ### 1. Build a v2 OTA package on the build host
-  # A detectable v2: vendor/diaspore/diaspore.mk stamps vendor/diaspore/etc/diaspore-ota-version into
-  # /system/etc/diaspore-ota-version (v1 lacked it). Then:
+  # A detectable v2: vendor/diaspore/diaspore.mk stamps vendor/diaspore/etc/nowhere-ota-version into
+  # /system/etc/nowhere-ota-version (v1 lacked it). Then:
   cd /mnt/build && source lineage/build/envsetup.sh && breakfast FP3 && m otapackage
   # -> out/target/product/FP3/lineage_FP3-ota.zip  (full A/B OTA, signed with the testkey ~1GB)
 
@@ -48,9 +48,9 @@ cat <<'EOF'
 
 ### 5. Reboot into the updated slot + verify
   adb reboot
-  # confirm: ro.boot.slot_suffix flipped; /system/etc/diaspore-ota-version present (= v2);
+  # confirm: ro.boot.slot_suffix flipped; /system/etc/nowhere-ota-version present (= v2);
   # verifiedbootstate=yellow, flash.locked=1, veritymode=enforcing (OTA'd images verify under our key);
-  # /data intact (adb auth + /data/diaspore/diaspore.conf survive -- OTA does NOT wipe /data).
+  # /data intact (adb auth + /data/nowhere/nowhere.conf survive -- OTA does NOT wipe /data).
   # update_verifier marks the slot successful on a good boot (bootctl is-slot-marked-successful <n> -> 1).
 
 ### 6. A/B rollback (safety net; both slots are valid Diaspore)

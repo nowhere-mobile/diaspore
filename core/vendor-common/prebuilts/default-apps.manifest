@@ -1,4 +1,4 @@
-# Diaspore default apps (DIA-20260617-06) — pinned F-Droid versions.
+# Nowhere default apps (DIA-20260617-06) — pinned F-Droid versions.
 #
 # These APKs are NOT committed (~277 MB; Fennec alone is 120 MB). fetch-default-apps.sh downloads them
 # from F-Droid into this dir before a build; the Android.bp android_app_import modules then bake them into

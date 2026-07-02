@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Diaspore default home layout (DIA-20260617-07; two-page dock rework DIA-20260618-01). Replaces
+  Trebuchet's stock default_workspace for the 5-column grids (this file + 5x6 + 5x7 are identical: only the
+  hotseat + screen 1 are used, which every 5-col grid has). The stock layout shipped a Google search widget
+  (dead on a no-GApps device). Clean two-page home:
+    - Landing (screen 0): intentionally empty workspace, just wallpaper + the dock. Kept as a real empty
+      page by QSB_ON_FIRST_SCREEN=true (a Trebuchet BuildConfig patch; WIDGET_ON_FIRST_SCREEN stays false
+      so no search widget is drawn) so it does NOT collapse onto page 2.
+    - Page 2 (screen 1): the default apps (DIA-06 set + a few staples), one swipe right.
+    - Hotseat (dock): the 5 primary apps, pinned just above the nav buttons on every page.
+  Rarely-used stock apps (Jelly, Contacts, Calculator, Recorder, Calendar, Gallery, Music, AudioFX) stay
+  installed but live in the app drawer. The per-profile arrangement still roams (launcher.db); this is only
+  the fresh-profile default.
+-->
+<favorites xmlns:launcher="http://schemas.android.com/apk/res-auto/com.android.launcher3">
+
+    <!-- Hotseat (dock): Phone, Messages, Fennec, Camera, Profile -->
+    <favorite launcher:container="-101" launcher:screen="0" launcher:x="0" launcher:y="0"
+        launcher:packageName="com.android.dialer" launcher:className="com.android.dialer.main.impl.MainActivity" />
+    <favorite launcher:container="-101" launcher:screen="1" launcher:x="1" launcher:y="0"
+        launcher:packageName="com.android.messaging" launcher:className="com.android.messaging.ui.conversationlist.ConversationListActivity" />
+    <favorite launcher:container="-101" launcher:screen="2" launcher:x="2" launcher:y="0"
+        launcher:packageName="org.mozilla.fennec_fdroid" launcher:className="org.mozilla.fennec_fdroid.App" />
+    <favorite launcher:container="-101" launcher:screen="3" launcher:x="3" launcher:y="0"
+        launcher:packageName="org.lineageos.aperture" launcher:className="org.lineageos.aperture.CameraLauncher" />
+    <favorite launcher:container="-101" launcher:screen="4" launcher:x="4" launcher:y="0"
+        launcher:packageName="com.nowhere.chooser" launcher:className="com.nowhere.chooser.ProfileActivity" />
+
+    <!-- Screen 0 (landing) is intentionally empty: wallpaper + dock. Apps are on screen 1 (page 2). -->
+
+    <!-- Page 2 (screen 1). Row 0: maps / weather / comms / media -->
+    <favorite launcher:screen="1" launcher:x="0" launcher:y="0"
+        launcher:packageName="app.organicmaps" launcher:className="app.organicmaps.DownloadResourcesActivity" />
+    <favorite launcher:screen="1" launcher:x="1" launcher:y="0"
+        launcher:packageName="org.breezyweather" launcher:className="org.breezyweather.ui.main.MainActivity" />
+    <favorite launcher:screen="1" launcher:x="2" launcher:y="0"
+        launcher:packageName="eu.siacs.conversations" launcher:className="eu.siacs.conversations.ui.ConversationActivity" />
+    <favorite launcher:screen="1" launcher:x="3" launcher:y="0"
+        launcher:packageName="org.schabi.newpipe" launcher:className="org.schabi.newpipe.MainActivity" />
+    <favorite launcher:screen="1" launcher:x="4" launcher:y="0"
+        launcher:packageName="de.danoeh.antennapod" launcher:className="de.danoeh.antennapod.activity.SplashActivity" />
+
+    <!-- Row 1: security / wallet / notes / files / app store -->
+    <favorite launcher:screen="1" launcher:x="0" launcher:y="1"
+        launcher:packageName="com.beemdevelopment.aegis" launcher:className="com.beemdevelopment.aegis.ui.MainActivity" />
+    <favorite launcher:screen="1" launcher:x="1" launcher:y="1"
+        launcher:packageName="me.hackerchick.catima" launcher:className="protect.card_locker.MainActivity" />
+    <favorite launcher:screen="1" launcher:x="2" launcher:y="1"
+        launcher:packageName="com.omgodse.notally" launcher:className="com.omgodse.notally.activities.MainActivity" />
+    <favorite launcher:screen="1" launcher:x="3" launcher:y="1"
+        launcher:packageName="com.android.documentsui" launcher:className="com.android.documentsui.LauncherActivity" />
+    <favorite launcher:screen="1" launcher:x="4" launcher:y="1"
+        launcher:packageName="org.fdroid.fdroid" launcher:className="org.fdroid.fdroid.views.main.MainActivity" />
+
+    <!-- Row 2: system -->
+    <favorite launcher:screen="1" launcher:x="0" launcher:y="2"
+        launcher:packageName="com.android.settings" launcher:className="com.android.settings.Settings" />
+    <favorite launcher:screen="1" launcher:x="1" launcher:y="2"
+        launcher:packageName="com.android.deskclock" launcher:className="com.android.deskclock.DeskClock" />
+
+</favorites>

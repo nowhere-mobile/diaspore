@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A device owner needs no explicit policies; this just satisfies the device-admin meta-data. -->
+<!-- A device owner needs no explicit policies; watch-login is the one exception we need. -->
 <device-admin xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-policies/>
+    <uses-policies>
+        <!-- L4: enables onPasswordFailed/onPasswordSucceeded + getCurrentFailedPasswordAttempts so the
+             failed-attempt auto-logoff backstop can fire. A device owner may use any policy. -->
+        <watch-login />
+    </uses-policies>
 </device-admin>

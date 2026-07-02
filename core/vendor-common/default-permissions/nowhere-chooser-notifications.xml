@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<!--
+  Nowhere (DIA-20260619-12): pre-grant POST_NOTIFICATIONS to the chooser so it can raise the
+  "not backed up" status-bar notification in the foreground roamed user.
+
+  WHY THIS IS NEEDED: the user-0 device-owner chooser posts that notification INTO the foreground
+  ephemeral roamed user (createContextAsUser), driven by the agent's GET-SYNC-STATUS. POST_NOTIFICATIONS
+  is a DANGEROUS (runtime) permission since API 33, and the chooser targets SDK 34. privapp-permissions
+  grants only signature|privileged perms, NOT runtime perms, so without this the notify() is silently
+  dropped in the roamed user. A default-permissions exception grants it at EVERY user's creation (user 0
+  AND every fresh ephemeral roamed user, where the notification actually has to appear), exactly like the
+  geotz location grant (nowhere-geotz-location.xml). fixed="false" leaves it user-revocable.
+  -->
+<exceptions>
+    <exception package="com.nowhere.chooser">
+        <permission name="android.permission.POST_NOTIFICATIONS" fixed="false"/>
+    </exception>
+</exceptions>

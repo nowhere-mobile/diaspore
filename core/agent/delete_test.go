@@ -40,6 +40,8 @@ func newHTTPStore(t *testing.T) string {
 		case r.Method == "PUT" && strings.HasPrefix(r.URL.Path, "/ref/"):
 			body, _ := io.ReadAll(r.Body)
 			refs[strings.TrimPrefix(r.URL.Path, "/ref/")] = string(body)
+		case r.Method == "DELETE" && strings.HasPrefix(r.URL.Path, "/ref/"):
+			delete(refs, strings.TrimPrefix(r.URL.Path, "/ref/")) // HARD-remove (not tombstone) -> simulates a LOST head
 		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/ref/"):
 			if v, ok := refs[strings.TrimPrefix(r.URL.Path, "/ref/")]; ok {
 				io.WriteString(w, v) // a tombstone is "" -> getRef reads ""
@@ -62,7 +64,7 @@ func TestDeleteProfileWrongPassIsNoop(t *testing.T) {
 	name, pass := "alice", "correct horse battery"
 	createVault(base, name, pass) // seeds the head ref + the recovery ref -> the vault blob
 
-	head := getRef(base, profileRef(name, pass))
+	head := getRef(base, headKey(base, name, pass))
 	if head == "" {
 		t.Fatal("setup: profile should resolve right after createVault")
 	}
@@ -75,7 +77,7 @@ func TestDeleteProfileWrongPassIsNoop(t *testing.T) {
 	if deleteProfile(base, name, "wrong-pass") {
 		t.Fatal("deleteProfile returned true for a wrong passphrase")
 	}
-	if getRef(base, profileRef(name, pass)) == "" {
+	if getRef(base, headKey(base, name, pass)) == "" {
 		t.Fatal("a wrong passphrase wiped the head ref")
 	}
 	if getRef(base, v.RecoveryRef) == "" {
@@ -86,7 +88,7 @@ func TestDeleteProfileWrongPassIsNoop(t *testing.T) {
 	if !deleteProfile(base, name, pass) {
 		t.Fatal("deleteProfile returned false for the correct passphrase")
 	}
-	if getRef(base, profileRef(name, pass)) != "" {
+	if getRef(base, headKey(base, name, pass)) != "" {
 		t.Fatal("head ref still resolves after delete")
 	}
 	if getRef(base, v.RecoveryRef) != "" {
@@ -106,7 +108,7 @@ func TestSealDoesNotResurrectDeletedProfile(t *testing.T) {
 	base := newHTTPStore(t)
 	name, pass := "bob", "hunter2 horse battery"
 	createVault(base, name, pass)
-	if getRef(base, profileRef(name, pass)) == "" {
+	if getRef(base, headKey(base, name, pass)) == "" {
 		t.Fatal("setup: profile should resolve")
 	}
 
@@ -116,7 +118,7 @@ func TestSealDoesNotResurrectDeletedProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	pushProfile(base, name, pass, src)
-	if getRef(base, profileRef(name, pass)) == "" {
+	if getRef(base, headKey(base, name, pass)) == "" {
 		t.Fatal("a seal of a live profile must keep it resolvable")
 	}
 
@@ -124,18 +126,69 @@ func TestSealDoesNotResurrectDeletedProfile(t *testing.T) {
 	if !deleteProfile(base, name, pass) {
 		t.Fatal("delete should succeed")
 	}
-	if getRef(base, profileRef(name, pass)) != "" {
+	if getRef(base, headKey(base, name, pass)) != "" {
 		t.Fatal("head should be tombstoned right after delete")
 	}
 	pushProfile(base, name, pass, src) // a post-delete seal (the bug: this used to resurrect the head)
-	if got := getRef(base, profileRef(name, pass)); got != "" {
+	if got := getRef(base, headKey(base, name, pass)); got != "" {
 		t.Fatalf("seal RESURRECTED a deleted profile: head=%q, want empty", got)
 	}
 
 	// The "#de"/"#media" data refs are exempt -- they legitimately lazy-create on their first seal.
 	pushProfile(base, name+"#media", pass, src)
-	if getRef(base, profileRef(name+"#media", pass)) == "" {
+	if getRef(base, headKey(base, name+"#media", pass)) == "" {
 		t.Fatal("a #media data ref should lazy-create on first seal")
+	}
+}
+
+// The flip side of the no-resurrect guard (#19, DIA-20260624-05): a LOST head -- the ref OBJECT is gone
+// (churn / corruption / partial state), NOT tombstoned -- on a LIVE session must RECOVER on the next seal,
+// not be skipped forever. The distinction is tombstone (delRef leaves an empty object that EXISTS) vs an
+// ABSENT ref (not-found). A deleted profile is always tombstoned AND reaped (no live session), so this can
+// never resurrect a delete.
+func TestSealRecoversLostHead(t *testing.T) {
+	base := newHTTPStore(t)
+	name, pass := "dave", "lost horse battery staple"
+	createVault(base, name, pass)
+	if getRef(base, headKey(base, name, pass)) == "" {
+		t.Fatal("setup: profile should resolve right after createVault")
+	}
+
+	// Simulate a LOST head: HARD-remove the ref object (404/not-found), distinct from a delete tombstone
+	// (which leaves an empty object that EXISTS). The "#de"/"#media" data refs survive (as for t/t1234).
+	req, _ := http.NewRequest(http.MethodDelete, base+"/ref/"+headKey(base, name, pass), nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if refExists(base, headKey(base, name, pass)) {
+		t.Fatal("setup: a LOST head must read as ABSENT (not a tombstone)")
+	}
+	if getRef(base, headKey(base, name, pass)) != "" {
+		t.Fatal("setup: a lost head should resolve empty")
+	}
+
+	// A live session seals -> the lost head RECOVERS (re-created + resolvable), unlike a tombstoned delete.
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "f"), []byte("recovered"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pushProfile(base, name, pass, src)
+	if getRef(base, headKey(base, name, pass)) == "" {
+		t.Fatal("a LOST head was NOT recovered by the live-session seal (#19 regression)")
+	}
+
+	// And a DELETE tombstone still does NOT recover (the safety property is preserved). Re-create, delete,
+	// seal -> stays gone.
+	name2, pass2 := "erin", "deleted horse battery staple"
+	createVault(base, name2, pass2)
+	if !deleteProfile(base, name2, pass2) {
+		t.Fatal("delete should succeed")
+	}
+	pushProfile(base, name2, pass2, src)
+	if getRef(base, headKey(base, name2, pass2)) != "" {
+		t.Fatal("a tombstoned (deleted) profile must STAY gone after a seal")
 	}
 }
 
@@ -153,7 +206,7 @@ func TestDeleteForSession(t *testing.T) {
 	if got := deleteForSession(base, name, "wrong-pass", name, pass); got != "wrongpass" {
 		t.Fatalf("real profile + wrong confirm: got %q, want \"wrongpass\"", got)
 	}
-	if getRef(base, profileRef(name, pass)) == "" {
+	if getRef(base, headKey(base, name, pass)) == "" {
 		t.Fatal("a wrong confirm passphrase deleted the profile")
 	}
 
@@ -161,7 +214,7 @@ func TestDeleteForSession(t *testing.T) {
 	if got := deleteForSession(base, name, pass, name, pass); got != "deleted" {
 		t.Fatalf("real profile + correct confirm: got %q, want \"deleted\"", got)
 	}
-	if getRef(base, profileRef(name, pass)) != "" {
+	if getRef(base, headKey(base, name, pass)) != "" {
 		t.Fatal("head still resolves after a successful delete")
 	}
 

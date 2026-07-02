@@ -28,7 +28,7 @@ your phone re-materializes. Power off → the device is a blank slate.
 4. **Log out / power off** → the user's `/data` is sealed to the store, then
    wiped. The device holds nothing of yours at rest.
 
-See `docs/roadmap.md` (plan) and `docs/app-model.md` (apps).
+See [`docs/roadmap.md`](docs/roadmap.md) (plan) and [`docs/app-model.md`](docs/app-model.md) (apps).
 
 ## Status
 
@@ -45,36 +45,36 @@ See `docs/roadmap.md` (plan) and `docs/app-model.md` (apps).
 
 Earlier: the loop logic (a portable Phase 0 sim) and the Cuttlefish bring-up
 (M1–M3: stock boot, custom stage-1 init, amnesiac `/data`) are done. Slice-by-slice
-history is in [`worklog.md`](worklog.md).
+history is in the commit log.
 
 **Next:** roam completeness (`/data/user_de`, `/data/media`), SELinux enforcing
 (drop the bring-up `permissive`), verified boot (AVB), and the productionization
 layer (store config/discovery, chunk-addressed sync, OTA, branding). The full
-designed-but-not-built checklist lives in `docs/backlog.md`.
+designed-but-not-built checklist lives in [`docs/backlog.md`](docs/backlog.md).
 
 ## Documents
 
-- `docs/design.md` — full system design (architecture, components,
+- [`docs/design.md`](docs/design.md) — full system design (architecture, components,
   flows, failure modes, tech choices).
-- `docs/roadmap.md` — the implementation plan and phase ladder.
-- `docs/app-model.md` — how apps roam (the list roams; code
+- [`docs/roadmap.md`](docs/roadmap.md) — the implementation plan and phase ladder.
+- [`docs/app-model.md`](docs/app-model.md) — how apps roam (the list roams; code
   re-downloads per device).
-- `docs/storage.md` — the client-encrypted, content-addressed,
+- [`docs/storage.md`](docs/storage.md) — the client-encrypted, content-addressed,
   swappable store.
-- `docs/enrollment.md` — Day-0 / profile creation and how
+- [`docs/enrollment.md`](docs/enrollment.md) — Day-0 / profile creation and how
   store config lives on an amnesiac device.
-- `docs/backlog.md` — the consolidated remaining-work checklist.
-- `docs/boot-flow.md` — the initramfs network-root path, **kept
+- [`docs/backlog.md`](docs/backlog.md) — the consolidated remaining-work checklist.
+- [`docs/boot-flow.md`](docs/boot-flow.md) — the initramfs network-root path, **kept
   for the optional Phase 5 netboot stretch** (the shipping model boots locally).
-- `docs/prior-art.md` — survey of related work and what is
+- [`docs/prior-art.md`](docs/prior-art.md) — survey of related work and what is
   genuinely unbuilt.
 
 ## Repository & workflow
 
 Canonical home: **`git.linnae.ai/linnae/diaspore`** (self-hosted Gitea). Work
-follows [`AGENTS.md`](AGENTS.md): a branch per slice (`dia-YYYYMMDD-NN-<topic>`,
-or `codex/<topic>` for small no-ID cleanups), commits prefixed with the work ID,
-and **never a direct commit to `main`**.
+follows [`CONTRIBUTING.md`](CONTRIBUTING.md): a branch per slice
+(`dia-YYYYMMDD-NN-<topic>`, or `codex/<topic>` for small no-ID cleanups),
+commits prefixed with the work ID, and **never a direct commit to `main`**.
 
 Separate from the Taxon and Lumen projects.
 

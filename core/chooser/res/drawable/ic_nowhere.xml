@@ -1,0 +1,25 @@
+<!-- Nowhere launcher icon (shared/core): the dispersing-spore motif (cf. ChooserActivity.SporeView) on a
+     dark disc, teal accent. A single vector drawable; used as the app + Log-off icon. Per-edition overrides
+     may recolor it (e.g. editions/endospore ships a gray variant for the GrapheneOS theme). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- dark disc background (brand canvas #0B0F14) -->
+    <path android:fillColor="#0B0F14"
+        android:pathData="M54,54 m-50,0 a50,50 0 1,0 100,0 a50,50 0 1,0 -100,0 Z" />
+    <!-- dispersing spore: dots rising/scattering up-right, teal accent + ink white -->
+    <path android:fillColor="#4FD6AC"
+        android:pathData="M52,76 m-10,0 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0 Z" />
+    <path android:fillColor="#EAF1EE"
+        android:pathData="M34,56 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 Z" />
+    <path android:fillColor="#4FD6AC"
+        android:pathData="M71,50 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z" />
+    <path android:fillColor="#4FD6AC"
+        android:pathData="M28,36 m-4.2,0 a4.2,4.2 0 1,0 8.4,0 a4.2,4.2 0 1,0 -8.4,0 Z" />
+    <path android:fillColor="#EAF1EE"
+        android:pathData="M82,33 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 Z" />
+    <path android:fillColor="#4FD6AC"
+        android:pathData="M58,24 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0 Z" />
+</vector>

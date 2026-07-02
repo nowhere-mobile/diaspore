@@ -1,10 +1,10 @@
-// Diaspore system-side components (P4.2). Kept in /system for GSI-portability (docs/portability.md).
+// Nowhere system-side components (P4.2). Kept in /system for GSI-portability (docs/portability.md).
 // TODO(P4.2c): a proper sepolicy domain instead of su:s0.
 // TODO(P4.2b): chooser-driven profile + passphrase + store config (docs/enrollment.md).
 
 cc_prebuilt_binary {
-    name: "diaspore_agent",
-    srcs: ["bin/diaspore_agent"],
+    name: "nowhere_agent",
+    srcs: ["bin/nowhere_agent"],
     compile_multilib: "64",
     check_elf_files: false, // static Go binary: no dynamic deps to check
     strip: { none: true },
@@ -12,51 +12,60 @@ cc_prebuilt_binary {
 }
 
 sh_binary {
-    name: "diaspore_login.sh",
-    src: "bin/diaspore_login.sh",
+    name: "nowhere_login.sh",
+    src: "bin/nowhere_login.sh",
 }
 
 sh_binary {
-    name: "diaspore_provision.sh",
-    src: "bin/diaspore_provision.sh",
+    name: "nowhere_provision.sh",
+    src: "bin/nowhere_provision.sh",
 }
 
 sh_binary {
-    name: "diaspore_roamd.sh",
-    src: "bin/diaspore_roamd.sh",
+    name: "nowhere_roamd.sh",
+    src: "bin/nowhere_roamd.sh",
 }
 
 sh_binary {
-    name: "diaspore_otad.sh",
-    src: "bin/diaspore_otad.sh",
+    name: "nowhere_otad.sh",
+    src: "bin/nowhere_otad.sh",
 }
 
 sh_binary {
-    name: "diaspore_gate.sh",
-    src: "bin/diaspore_gate.sh",
+    name: "nowhere_gate.sh",
+    src: "bin/nowhere_gate.sh",
 }
 
 prebuilt_etc {
-    name: "diaspore.rc",
-    src: "etc/diaspore.rc",
+    name: "nowhere.rc",
+    src: "etc/nowhere.rc",
     sub_dir: "init",
 }
 
 // Blind-login chooser (P3.1): the boot-time front door. Hands name+passphrase to the root
-// `diaspore_agent login-daemon` over /dev/socket/diaspore_login (the privilege boundary -- an app
+// `nowhere_agent login-daemon` over /dev/socket/nowhere_login (the privilege boundary -- an app
 // can't write the root-owned tmpfs / read creds / do S3). No resources (UI built in code).
 // Platform-signed so it lands in a system-app domain we can grant the socket connectto (see sepolicy).
+// ZXing core (Apache-2.0, pure Java) — offline QR decode for the Add-credits scanner. No GApps means no
+// ML Kit barcode scanner, so we bundle the de-facto offline decoder as a prebuilt jar (DIA-20260630-16).
+java_import {
+    name: "nowhere-zxing-core",
+    jars: ["chooser/libs/zxing-core.jar"],
+    sdk_version: "current",
+}
+
 android_app {
-    name: "DiasporeChooser",
+    name: "NowhereChooser",
     srcs: ["chooser/src/**/*.java"],
     manifest: "chooser/AndroidManifest.xml",
     resource_dirs: ["chooser/res"], // only the device-admin policy XML (Lock Task kiosk on the gate)
+    static_libs: ["nowhere-zxing-core"], // QR scanner (QrScanActivity)
     platform_apis: true,
     certificate: "platform",
     optimize: { enabled: false },
 }
 
-// F-Droid client (prebuilt, F-Droid-signed): the on-device app store. Diaspore is no-Google (no Play
+// F-Droid client (prebuilt, F-Droid-signed): the on-device app store. Nowhere is no-Google (no Play
 // Store), so this is how a profile installs apps. Regular (non-privileged) app -- the user grants
 // "install unknown apps" on first install (no privileged extension in this slice). Apps installed via
 // F-Droid are captured on logoff and roam back on login via app provisioning (DIA-20260613-02).

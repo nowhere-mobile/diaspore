@@ -9,13 +9,13 @@ export PATH=$HOME/bin:$PATH LC_ALL=C USE_CCACHE=1 CCACHE_DIR=/mnt/build/ccache
 source build/envsetup.sh
 breakfast FP3 >/dev/null 2>&1
 echo "=== m diaspore modules START $(date) (combo: $TARGET_PRODUCT-$TARGET_RELEASE-$TARGET_BUILD_VARIANT) ==="
-m diaspore_agent diaspore.rc diaspore_boot.sh diaspore_shutdown.sh
+m nowhere_agent nowhere.rc diaspore_boot.sh diaspore_shutdown.sh
 echo "=== MBUILD_EXIT=$? $(date) ==="
 echo "--- installed into system? ---"
-ls -la out/target/product/FP3/system/bin/diaspore_agent \
+ls -la out/target/product/FP3/system/bin/nowhere_agent \
        out/target/product/FP3/system/bin/diaspore_boot.sh \
        out/target/product/FP3/system/bin/diaspore_shutdown.sh \
-       out/target/product/FP3/system/etc/init/diaspore.rc 2>&1
+       out/target/product/FP3/system/etc/init/nowhere.rc 2>&1
 EOF
 chmod +x /mnt/build/run-mbuild.sh
 setsid bash /mnt/build/run-mbuild.sh > /mnt/build/mbuild.log 2>&1 < /dev/null &

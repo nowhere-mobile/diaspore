@@ -1,8 +1,11 @@
-# Control property for the Arc-2 data worker. The login daemon (u:r:diaspore:s0) starts the su:s0
-# worker via `setprop ctl.start diaspore_roamd`. Give THIS service's control property its own label
+# Control property for the Arc-2 data worker. The login daemon (u:r:nowhere:s0) starts the su:s0
+# worker via `setprop ctl.start nowhere_roamd`. Give THIS service's control property its own label
 # (more specific than the generic `ctl.start$` fallback) so the daemon can be granted `set` on just
-# this one service, not arbitrary `ctl.start`. See diaspore.te (ctl_diaspore_roamd_prop + set_prop).
-ctl.start$diaspore_roamd        u:object_r:ctl_diaspore_roamd_prop:s0
+# this one service, not arbitrary `ctl.start`. See nowhere.te (ctl_nowhere_roamd_prop + set_prop).
+ctl.start$nowhere_roamd        u:object_r:ctl_nowhere_roamd_prop:s0
 # Control property for the on-demand OTA updater (DIA-20260618-03): the daemon ctl.starts it on a
-# user-confirmed install (see diaspore.te ctl_diaspore_otad_prop + set_prop).
-ctl.start$diaspore_otad         u:object_r:ctl_diaspore_otad_prop:s0
+# user-confirmed install (see nowhere.te ctl_nowhere_otad_prop + set_prop).
+ctl.start$nowhere_otad         u:object_r:ctl_nowhere_otad_prop:s0
+# Per-edition brand (set in <edition>.mk): an app-readable type so the confined gate domain can read it
+# (default_prop is app-neverallow). See nowhere.te (nowhere_brand_prop + allow nowhere_chooser).
+ro.nowhere.brand               u:object_r:nowhere_brand_prop:s0

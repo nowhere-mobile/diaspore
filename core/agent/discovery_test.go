@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -49,5 +50,29 @@ func TestDiscoAnonLookup(t *testing.T) {
 	// Blind: a wrong passphrase derives a different bootstrapRef -> a GET miss, indistinguishable.
 	if _, ok := discoverConfig("disco", name, "wrong-pass"); ok {
 		t.Fatal("a wrong passphrase must miss (blind login)")
+	}
+}
+
+// TestGatewayRoamsViaDiscovery (DIA-20260627-B / B.4): the billing GATEWAY_URL rides the sealed store-config
+// so a user's gateway re-materializes on another device from name+pass alone; an empty gateway is omitted.
+func TestGatewayRoamsViaDiscovery(t *testing.T) {
+	base := newHTTPStore(t)
+	name, pass := "gw", "roam my gateway too"
+
+	publishDiscovery(base, name, pass,
+		"https://s3.test", "auto", "bkt", "AK", "SK", "https://gw.nowhere.mobile")
+	cfg, ok := discoverConfig(base, name, pass)
+	if !ok {
+		t.Fatal("discover after publish should succeed")
+	}
+	if !strings.Contains(cfg, "GATEWAY_URL=https://gw.nowhere.mobile") {
+		t.Fatalf("gateway URL did not roam with the store config:\n%s", cfg)
+	}
+
+	// an empty gateway is omitted: older readers see only the S3_* lines.
+	publishDiscovery(base, name, pass, "https://s3.test", "auto", "bkt", "AK", "SK", "")
+	cfg2, _ := discoverConfig(base, name, pass)
+	if strings.Contains(cfg2, "GATEWAY_URL") {
+		t.Fatalf("an empty gateway should be omitted from the roamed config:\n%s", cfg2)
 	}
 }

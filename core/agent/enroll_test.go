@@ -12,9 +12,9 @@ import (
 func setEnrollEnv(t *testing.T, max, window string) string {
 	t.Helper()
 	state := filepath.Join(t.TempDir(), "enroll")
-	t.Setenv("DIASPORE_ENROLL_STATE", state)
-	t.Setenv("DIASPORE_ENROLL_MAX", max)
-	t.Setenv("DIASPORE_ENROLL_WINDOW", window)
+	t.Setenv("NOWHERE_ENROLL_STATE", state)
+	t.Setenv("NOWHERE_ENROLL_MAX", max)
+	t.Setenv("NOWHERE_ENROLL_WINDOW", window)
 	return state
 }
 

@@ -28,6 +28,13 @@ store-data/
 keys/
 secrets/
 
+# Dev adb pre-auth key (DIA-20260623-25): the build builder's adb PUBLIC key, baked to /adb_keys on
+# userdebug/eng builds so adbd trusts the dev host with no prompt (the kiosk hides the RSA dialog). It is
+# the public half only, but it's per-builder + machine-specific, so provision it out-of-band rather than
+# commit it: copy your ~/.android/adbkey.pub to core/vendor-common/dev-adb_keys on the build host (stage-
+# vendor stages it to vendor/diaspore/dev-adb_keys, which diaspore.mk's PRODUCT_ADB_KEYS bakes in).
+core/vendor-common/dev-adb_keys
+
 # Store config (S3/Filebase endpoint + access/secret keys) - provisioned
 # out-of-band into the image, never committed.
 **/diaspore.conf
@@ -51,3 +58,6 @@ core/vendor-common/prebuilts/default-apps-jni.mk
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# Agent binary is cross-compiled from core/agent at stage time (stage-vendor.sh), never committed.
+core/vendor-common/bin/nowhere_agent

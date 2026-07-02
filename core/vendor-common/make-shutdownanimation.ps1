@@ -1,14 +1,23 @@
-# Generates the Diaspore SHUTDOWN animation (PNG frames + desc.txt). Counterpart to the boot animation:
-# the dispersing-spore motif runs in REVERSE -- the dots gather inward and the "diaspore" wordmark fades
-# to nothing, i.e. "your phone, nowhere" on power-off. Plays ONCE (desc: `p 1 0 part0`), then black.
-# Offline; .NET only. Like the boot zip, this MUST be a STORED zip (bootanimation mmaps frames) -> the
-# Add-Stored path emits deflated entries, so re-zip STORED afterwards (the build/commit step does this).
+# Generates a Nowhere edition SHUTDOWN animation (PNG frames + desc.txt). Counterpart to the boot
+# animation: the dispersing-spore motif runs in REVERSE -- the dots gather inward and the wordmark fades to
+# nothing, i.e. "your phone, nowhere" on power-off. Plays ONCE (desc: `p 1 0 part0`), then black. Offline;
+# .NET only. Parameterized per edition (defaults = the Diaspore/FP3 one):
+#   -Wordmark endospore -Height 2400 -DotR 154 -DotG 160 -DotB 166 -OutDir <editions/endospore/vendor/media>
+# Android's bootanimation mmaps each frame, so the zip MUST be STORED (method 0); .NET's NoCompression DOES
+# emit STORED entries (verified: `unzip -v` shows 0%), so the output plays as-is -- no `zip -0` re-zip.
+param(
+  [string]$Wordmark = 'diaspore',
+  [int]$Width  = 1080,
+  [int]$Height = 2160,
+  [int]$DotR = 150, [int]$DotG = 200, [int]$DotB = 255,   # gathering-dot tint (Diaspore = light blue)
+  [string]$OutDir = (Join-Path $PSScriptRoot 'media')
+)
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$W = 1080; $H = 2160; $FPS = 12; $N = 30; $nDots = 14
-$outRoot = Join-Path $PSScriptRoot 'media'
+$W = $Width; $H = $Height; $FPS = 12; $N = 30; $nDots = 14
+$outRoot = $OutDir
 $work = Join-Path $env:TEMP ('shutanim_' + [Guid]::NewGuid().ToString('N'))
 $part0 = Join-Path $work 'part0'
 [IO.Directory]::CreateDirectory($part0) | Out-Null
@@ -38,7 +47,7 @@ for ($i = 0; $i -lt $N; $i++) {
     $dy = [Math]::Sin($ang) * $rad - (1 - $p) * 120
     $a = [int]([Math]::Max(0.0, (1 - $p)) * 190)
     $sz = [single][Math]::Max(2.0, 9 * (0.4 + 0.6 * (1 - $p)))
-    $br = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($a, 150, 200, 255))
+    $br = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($a, $DotR, $DotG, $DotB))
     $g.FillEllipse($br, [single]($cx + $dx - $sz / 2), [single]($cy - 250 + $dy - $sz / 2), $sz, $sz)
     $br.Dispose()
   }
@@ -47,7 +56,7 @@ for ($i = 0; $i -lt $N; $i++) {
   $fade = [Math]::Max(0.0, 1 - ($p * $p))
   $wa = [int](248 * $fade)
   $tb = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($wa, 250, 252, 255))
-  $g.DrawString('diaspore', $font, $tb, $cx, $cy, $sf); $tb.Dispose()
+  $g.DrawString($Wordmark, $font, $tb, $cx, $cy, $sf); $tb.Dispose()
   $sa = [int](150 * $fade)
   $sb = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($sa, 165, 178, 192))
   $g.DrawString('your phone, nowhere', $subFont, $sb, $cx, [single]($cy + 150), $sf); $sb.Dispose()

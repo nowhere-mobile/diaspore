@@ -12,10 +12,10 @@ brunch FP3
 echo "=== DIASBUILD_EXIT=$? $(date) ==="
 echo "--- OTA zip + baked diaspore files ---"
 ls -la out/target/product/FP3/lineage-*.zip \
-       out/target/product/FP3/system/etc/diaspore/diaspore.conf \
-       out/target/product/FP3/system/bin/diaspore_agent \
+       out/target/product/FP3/system/etc/nowhere/nowhere.conf \
+       out/target/product/FP3/system/bin/nowhere_agent \
        out/target/product/FP3/system/bin/diaspore_boot.sh \
-       out/target/product/FP3/system/etc/init/diaspore.rc 2>&1
+       out/target/product/FP3/system/etc/init/nowhere.rc 2>&1
 EOF
 chmod +x /mnt/build/run-diasbuild.sh
 pkill -f run-rebuild.sh 2>/dev/null || true; pkill -f run-mbuild.sh 2>/dev/null || true

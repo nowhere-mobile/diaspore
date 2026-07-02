@@ -1,7 +1,7 @@
-# Map the platform-signed blind-login chooser to its own confined SELinux domain (diaspore_chooser)
+# Map the platform-signed blind-login chooser to its own confined SELinux domain (nowhere_chooser)
 # so it can reach the login daemon's AF_UNIX socket -- instead of running as broad platform_app (which
-# system_ext policy can't grant access to the system_ext-private diaspore_login_socket anyway).
+# system_ext policy can't grant access to the system_ext-private nowhere_login_socket anyway).
 # More specific than the default `user=_app seinfo=platform domain=platform_app`, so this wins.
 # levelFrom=none -> the chooser runs at plain s0 (no per-user MLS categories), so it shares a level
 # with the s0 login socket and MLS doesn't block connectto/write to it (it's a singleton system app).
-user=_app seinfo=platform name=com.diaspore.chooser domain=diaspore_chooser type=app_data_file levelFrom=none
+user=_app seinfo=platform name=com.nowhere.chooser domain=nowhere_chooser type=app_data_file levelFrom=none

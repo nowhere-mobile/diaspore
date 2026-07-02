@@ -1,15 +1,32 @@
 # Diaspore system-side components (P4.2).
 # Inherited from device/fairphone/FP3/lineage_FP3.mk via inherit-product-if-exists.
 PRODUCT_PACKAGES += \
-    diaspore_agent \
-    diaspore_login.sh \
-    diaspore_provision.sh \
-    diaspore_roamd.sh \
-    diaspore_otad.sh \
-    diaspore_gate.sh \
-    diaspore.rc \
-    DiasporeChooser \
+    nowhere_agent \
+    nowhere_login.sh \
+    nowhere_provision.sh \
+    nowhere_roamd.sh \
+    nowhere_otad.sh \
+    nowhere_gate.sh \
+    nowhere.rc \
+    NowhereChooser \
     FDroid
+
+# Dev-only adb pre-authorization (DIA-20260623-25) -- a DEAD END on this FP3 with our system-only flash, so
+# it's DEFERRED (DIA-20260624-04). The device-owner kiosk SUPPRESSES the "Allow USB debugging?" RSA dialog, so
+# adb stays `unauthorized` with no interactive way to approve it. Every auto-trust route fails when we flash
+# only system+vbmeta (`p4.5-sysimg.sh`):
+#  - PRODUCT_ADB_KEYS (keyed): bakes the key to /adb_keys, but the FP3 is recovery-as-boot so it lands in the
+#    BOOT ramdisk, which a system flash never touches. Kept below -- effective only on a full/boot flash.
+#  - ro.adb.secure=0 (disable auth): OVERRIDDEN -- vendor/lineage/config/common.mk forces ro.adb.secure=1 for
+#    userdebug AND device/fairphone/FP3 init.qcom.usb.rc does `setprop ro.adb.secure 1` at runtime, both beating
+#    PRODUCT_PROPERTY_OVERRIDES, so system/build.prop still ships =1. (So that override is intentionally NOT set.)
+# A real fix needs a device-tree / boot change (init.qcom.usb.rc + the boot ramdisk), out of this repo and not
+# carried by a system flash. Until then the dev loop flashes via a manual bootloader entry.
+# PROVISION (gitignored, per-builder) for the keyed bake on a FULL flash: copy your ~/.android/adbkey.pub to
+# core/vendor-common/dev-adb_keys; stage-vendor stages it into vendor/diaspore/dev-adb_keys.
+ifneq (,$(filter eng userdebug,$(TARGET_BUILD_VARIANT)))
+PRODUCT_ADB_KEYS := vendor/diaspore/dev-adb_keys
+endif
 
 # Curated default apps (DIA-20260617-06): a small, privacy-first, NO-GApps F-Droid set so the device is
 # useful out of the box (F-Droid can still update them in place). Modules defined in Android.bp as
@@ -59,7 +76,14 @@ PRODUCT_PACKAGES += \
 # where DIA-20260617-01 turns geo detection on. Proven on FP3: clean boot -> provider healthy -> mock location
 # resolves to its Olson zone (Tokyo/London), state CERTAIN. See the XML header + docs/timezone-model.md.
 PRODUCT_COPY_FILES += \
-    vendor/diaspore/default-permissions/diaspore-geotz-location.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/default-permissions/diaspore-geotz-location.xml
+    vendor/diaspore/default-permissions/nowhere-geotz-location.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/default-permissions/nowhere-geotz-location.xml
+
+# Pre-grant POST_NOTIFICATIONS to the chooser (DIA-20260619-12) so its user-0 process can raise the
+# "not backed up" notification IN the foreground roamed user. POST_NOTIFICATIONS is a runtime perm
+# (chooser targetSdk 34); privapp-permissions doesn't cover runtime perms, so without this the cross-user
+# notify() is dropped in the ephemeral roamed user. Granted at every user's creation, like the geotz grant.
+PRODUCT_COPY_FILES += \
+    vendor/diaspore/default-permissions/nowhere-chooser-notifications.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/default-permissions/nowhere-chooser-notifications.xml
 
 # Diaspore boot animation: provided via TARGET_BOOTANIMATION in device/fairphone/FP3/BoardConfig.mk
 # (= vendor/diaspore/media/bootanimation.zip). LineageOS's own lineage_bootanimation soong module
@@ -77,20 +101,24 @@ PRODUCT_PACKAGE_OVERLAYS += vendor/diaspore/overlay
 # OS version stamp: bake the Diaspore version into /system so the running OS reports it (and OTAs are
 # detectable v1 -> v2). dm-verity-protected like the rest of /system.
 PRODUCT_COPY_FILES += \
-    vendor/diaspore/etc/diaspore-ota-version:$(TARGET_COPY_OUT_SYSTEM)/etc/diaspore-ota-version
+    vendor/diaspore/etc/nowhere-ota-version:$(TARGET_COPY_OUT_SYSTEM)/etc/nowhere-ota-version
 
 # Per-device default timezone + locale (DIA-20260616-58). A no-GApps / no-SIM device has no NITZ and weak
 # geolocation-tz, so the framework's timezone detector falls back to the build default -- which was GMT, so
 # the clock showed the right INSTANT in the wrong ZONE for any non-GMT user. Bake a sensible market default
 # (`persist.sys.timezone`): a fresh `/data` (no /data/property override) comes up in this zone instead of
-# GMT. `ro.diaspore.default.{timezone,locale}` are the chooser's fallback CONSTANTS -- on login it applies
+# GMT. `ro.nowhere.default.{timezone,locale}` are the chooser's fallback CONSTANTS -- on login it applies
 # the profile's ROAMED tz/locale, or these defaults when a profile has none (so each login is deterministic
 # and the gate-at-rest never inherits the last user's zone after a fresh boot). en-US is already the
 # framework locale default; set it explicitly so the constant and the device agree.
 PRODUCT_PRODUCT_PROPERTIES += \
     persist.sys.timezone=America/New_York \
-    ro.diaspore.default.timezone=America/New_York \
-    ro.diaspore.default.locale=en-US
+    ro.nowhere.default.timezone=America/New_York \
+    ro.nowhere.default.locale=en-US
+
+# Per-edition brand shown on the gate (the chooser reads ro.nowhere.brand; core defaults to "nowhere").
+PRODUCT_PRODUCT_PROPERTIES += \
+    ro.nowhere.brand=diaspore
 
 # Diaspore shutdown animation: the dispersing-spore motif in REVERSE (dots gather inward, wordmark fades
 # to nothing) -- "your phone, nowhere" on power-off. bootanimation (BootAnimation.cpp) plays the first of
@@ -101,17 +129,17 @@ PRODUCT_COPY_FILES += \
     vendor/diaspore/media/shutdownanimation.zip:$(TARGET_COPY_OUT_PRODUCT)/media/shutdownanimation.zip
 
 # Device store config (S3 endpoint + creds) is NOT baked into the read-only system image BY DEFAULT: it is
-# provisioned out-of-band to /data/diaspore/diaspore.conf (mutable, FBE-encrypted at rest, rotatable
+# provisioned out-of-band to /data/nowhere/nowhere.conf (mutable, FBE-encrypted at rest, rotatable
 # without a reflash) and read from there by the boot/login/sync/worker scripts (with a /system fallback
 # for older devices). Keeping creds out of /system removes a plaintext-at-rest leak and lets the key
 # rotate in place. A clean checkout therefore builds an un-enrolled OS regardless. (An OPT-IN bake of the
 # store conf -- for a turnkey device that must self-configure across a /data wipe without a first login --
-# is available at the bottom of this file; see the diaspore.conf wildcard block + its SECURITY note.) The full discovery /
+# is available at the bottom of this file; see the nowhere.conf wildcard block + its SECURITY note.) The full discovery /
 # bootstrap path (no creds on the device at all) is the productionization -> docs/enrollment.md.
 
 # OPT-IN TURNKEY DEFAULT (fresh-flash self-provision). Bake a device-default DISCOVERY config into /system
 # so a freshly flashed / factory-reset device can bootstrap its data store from name+passphrase ALONE: with
-# no /data config the login daemon falls back to this /system copy (diaspore_login.sh), and on login it GETs
+# no /data config the login daemon falls back to this /system copy (nowhere_login.sh), and on login it GETs
 # a sealed store-config at the profile's unguessable bootstrapRef and auto-applies it -> the gate comes up
 # (device-owner/kiosk already self-provision) AND "name+passphrase -> your phone" works with ZERO manual
 # store setup. The "flash and it just works" turnkey path.
@@ -128,22 +156,22 @@ PRODUCT_COPY_FILES += \
 # security backlog). NOTE: discovery.conf must be LF (CRLF -> trailing \r breaks the agent).
 ifneq ($(wildcard vendor/diaspore/etc/discovery.conf),)
 PRODUCT_COPY_FILES += \
-    vendor/diaspore/etc/discovery.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/diaspore/discovery.conf
+    vendor/diaspore/etc/discovery.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/nowhere/discovery.conf
 endif
 
 # OPT-IN: also bake the full device STORE config into /system (conditional on the file existing). By default
-# this is NOT baked -- the store conf is provisioned to /data/diaspore/diaspore.conf, and after a wipe the
+# this is NOT baked -- the store conf is provisioned to /data/nowhere/nowhere.conf, and after a wipe the
 # discovery bootstrap (above) re-materializes it on the first LOGIN. But discovery only helps UNLOCK (an
 # existing profile); CREATE (a brand-new profile) needs a store already present, so a freshly-wiped device
 # with only discovery can't create until it has been unlocked once. Baking the store conf makes the device
-# fully self-sufficient across `fastboot -w`: the login daemon's /system fallback (diaspore_login.sh) finds
+# fully self-sufficient across `fastboot -w`: the login daemon's /system fallback (nowhere_login.sh) finds
 # it, so the gate shows a configured store and BOTH Unlock and Create work immediately -- no manual restore.
 # SECURITY: this bakes the S3 endpoint + access/secret keys into read-only /system (plaintext-at-rest). In
 # the dev / turnkey-demo setup that's the account-level Filebase key (the "dev caveat"); production wants a
 # SCOPED, least-privilege key (the Phase-2 token broker -- docs/enrollment.md + security backlog). CONDITIONAL
-# + .gitignored (only diaspore.conf.example is tracked), so a clean checkout builds an UN-ENROLLED OS and the
-# creds never enter git. NOTE: diaspore.conf must be LF (CRLF -> trailing \r breaks the agent).
-ifneq ($(wildcard vendor/diaspore/etc/diaspore.conf),)
+# + .gitignored (only nowhere.conf.example is tracked), so a clean checkout builds an UN-ENROLLED OS and the
+# creds never enter git. NOTE: nowhere.conf must be LF (CRLF -> trailing \r breaks the agent).
+ifneq ($(wildcard vendor/diaspore/etc/nowhere.conf),)
 PRODUCT_COPY_FILES += \
-    vendor/diaspore/etc/diaspore.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/diaspore/diaspore.conf
+    vendor/diaspore/etc/nowhere.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/nowhere/nowhere.conf
 endif

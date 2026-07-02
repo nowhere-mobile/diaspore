@@ -71,7 +71,7 @@ cat <<'EOF'
   # the device owner / gate. Re-enable USB debugging (fresh /data) to regain adb.
 
 ### 6. Re-provision + verify
-  adb push <diaspore.conf> /data/diaspore/diaspore.conf   # /data was wiped; conf is out-of-band
+  adb push <nowhere.conf> /data/nowhere/nowhere.conf   # /data was wiped; conf is out-of-band
   # confirm: ro.boot.verifiedbootstate=yellow, flash.locked=1, veritymode=enforcing, roam login works.
 
 ### RECOVERY (if a locked boot ever fails): fastboot flashing unlock (wipes /data) -> orange/working.

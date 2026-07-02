@@ -1,9 +1,9 @@
-# Diaspore discovery endpoint (baked default) -- example/template. Copy to /data/diaspore/discovery.conf
-# (or bake at /system/etc/diaspore/discovery.conf) and fill in. LF line endings only (a CR breaks parsing).
+# Nowhere discovery endpoint (baked default) -- example/template. Copy to /data/nowhere/discovery.conf
+# (or bake at /system/etc/nowhere/discovery.conf) and fill in. LF line endings only (a CR breaks parsing).
 #
 # A fresh device with NO data store reads this to BOOTSTRAP its store config from name+passphrase: on a
 # login the daemon GETs a sealed config object at an unguessable bootstrapRef(name,pass) here, unseals it,
-# and configures itself -- so a profile re-materializes on any Diaspore device without re-entering store
+# and configures itself -- so a profile re-materializes on any Nowhere device without re-entering store
 # creds. The discovery endpoint only ever sees opaque refs -> ciphertext (zero-knowledge), like the data
 # store. Enrollment (CREATE) + each login auto-PUBLISH the sealed config back here.
 #
@@ -20,7 +20,7 @@
 # broker. For dev, discovery can even point at the same store as the data (bootstrapRef != profileRef).
 DISCO_ENDPOINT=https://s3.example.com
 DISCO_REGION=us-east-1
-DISCO_BUCKET=diaspore-discovery
+DISCO_BUCKET=nowhere-discovery
 # Leave these BLANK for keyless anonymous lookup against a public-read bucket (the secure default):
 DISCO_ACCESS_KEY=
 DISCO_SECRET_KEY=
